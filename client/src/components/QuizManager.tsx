@@ -9,10 +9,11 @@ import {
   Upload, 
   Check, 
   Award, 
-  BookOpen, 
   Sparkles,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Search,
+  BookMarked
 } from 'lucide-react';
 import type { Quiz, Question, GameMode } from '../types.js';
 import { soundManager } from '../utils/audio.js';
@@ -21,11 +22,22 @@ interface QuizManagerProps {
   onStartQuiz: (quizId: string) => void;
 }
 
+interface QuestionBankItem {
+  id: string;
+  category: string;
+  question: Question;
+}
+
 export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Banco de Questões
+  const [questionBank, setQuestionBank] = useState<QuestionBankItem[]>([]);
+  const [showBankModal, setShowBankModal] = useState(false);
 
   const fetchQuizzes = async () => {
     try {
@@ -40,16 +52,29 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
     }
   };
 
+  const fetchQuestionBank = async () => {
+    try {
+      const res = await fetch('/api/question-bank');
+      if (res.ok) {
+        const data = await res.json();
+        setQuestionBank(data);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar banco de questões:', err);
+    }
+  };
+
   useEffect(() => {
     fetchQuizzes();
+    fetchQuestionBank();
   }, []);
 
   const handleStartCreate = () => {
     soundManager.playClick();
     const newQuiz: Quiz = {
       id: '',
-      title: 'Novo Quiz Interativo',
-      description: 'Quiz criado para dinamizar a aula.',
+      title: 'Novo Quiz Tático',
+      description: 'Questionário formatado para dinâmica ao vivo.',
       category: 'EBD / Estudo',
       gameMode: 'speed_bonus',
       createdAt: new Date().toISOString(),
@@ -60,12 +85,12 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
           text: 'Qual é a primeira pergunta do seu quiz?',
           timeLimit: 20,
           points: 1000,
-          explanation: 'Explicação bíblica ou didática do porquê esta resposta é a correta.',
+          explanation: 'Explicação didática da resposta correta.',
           options: [
-            { id: 'opt-1', text: 'Opção A', isCorrect: true },
-            { id: 'opt-2', text: 'Opção B', isCorrect: false },
-            { id: 'opt-3', text: 'Opção C', isCorrect: false },
-            { id: 'opt-4', text: 'Opção D', isCorrect: false },
+            { id: 'opt-1', text: 'Alternativa 1', isCorrect: true },
+            { id: 'opt-2', text: 'Alternativa 2', isCorrect: false },
+            { id: 'opt-3', text: 'Alternativa 3', isCorrect: false },
+            { id: 'opt-4', text: 'Alternativa 4', isCorrect: false },
           ],
         },
       ],
@@ -128,7 +153,6 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
       return;
     }
 
-    // Validação das opções
     for (let i = 0; i < editingQuiz.questions.length; i++) {
       const q = editingQuiz.questions[i];
       const hasCorrect = q.options.some((o) => o.isCorrect);
@@ -160,7 +184,7 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(quizzes, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `quizzes-ebd-backup-${new Date().toISOString().slice(0, 10)}.json`);
+    downloadAnchor.setAttribute('download', `quizzes-backup-${new Date().toISOString().slice(0, 10)}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -193,7 +217,7 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
     reader.readAsText(file);
   };
 
-  // Funções do Editor de Perguntas
+  // Funções de Pergunta
   const addQuestion = () => {
     if (!editingQuiz) return;
     const newQ: Question = {
@@ -213,6 +237,21 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
       ...editingQuiz,
       questions: [...editingQuiz.questions, newQ],
     });
+  };
+
+  // Inserir pergunta do banco de questões
+  const handleInsertFromBank = (bankItem: QuestionBankItem) => {
+    if (!editingQuiz) return;
+    const clonedQuestion: Question = {
+      ...JSON.parse(JSON.stringify(bankItem.question)),
+      id: `q-${Date.now()}`,
+    };
+    setEditingQuiz({
+      ...editingQuiz,
+      questions: [...editingQuiz.questions, clonedQuestion],
+    });
+    soundManager.playClick();
+    setShowBankModal(false);
   };
 
   const removeQuestion = (idx: number) => {
@@ -250,124 +289,144 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
     setEditingQuiz({ ...editingQuiz, questions });
   };
 
+  const filteredQuizzes = quizzes.filter((q) => 
+    q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    q.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header & Ações */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 font-sans space-y-8">
+      {/* Header & Ações de Topo */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#27272A] pb-6">
         <div>
-          <h1 className="text-3xl font-extrabold text-white flex items-center gap-2">
-            <BookOpen className="w-8 h-8 text-indigo-400" /> Meus Quizzes & Avaliações
+          <div className="inline-flex items-center gap-2 text-xs font-mono text-[#00E5FF] uppercase tracking-wider mb-1">
+            <BookMarked className="w-4 h-4" /> ESTÚDIO DE CRIAÇÃO /// OPERATIVE
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight uppercase">
+            Gerenciador de Quizzes
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Crie perguntas ilimitadas, organize por temas e apresente ao vivo na aula.
+          <p className="text-xs text-[#A1A1AA] mt-1 font-mono">
+            BANCO DE QUESTÕES ILIMITADO // SUPORTE OFFLINE E NUVEM
           </p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="cursor-pointer px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors">
-            <Upload className="w-4 h-4" /> Importar JSON
+        <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
+          <label className="cursor-pointer px-3 py-2 rounded-lg bg-[#18181B] hover:bg-[#27272A] text-white border border-[#27272A] transition-all flex items-center gap-1.5">
+            <Upload className="w-3.5 h-3.5 text-[#00E5FF]" /> IMPORTAR JSON
             <input type="file" accept=".json" onChange={handleImportFile} className="hidden" />
           </label>
 
           <button
             onClick={handleExportAll}
-            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors"
+            className="px-3 py-2 rounded-lg bg-[#18181B] hover:bg-[#27272A] text-white border border-[#27272A] transition-all flex items-center gap-1.5"
           >
-            <Download className="w-4 h-4" /> Exportar Backup
+            <Download className="w-3.5 h-3.5 text-[#00E5FF]" /> BACKUP JSON
           </button>
 
           <button
             onClick={handleStartCreate}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center gap-1.5 shadow-lg shadow-indigo-600/25 transition-all"
+            className="px-4 py-2 rounded-lg bg-[#00E5FF] hover:bg-[#00c8e0] text-[#03060A] font-bold tracking-wider uppercase transition-all shadow-[0_0_12px_rgba(0,229,255,0.3)] flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4" /> Criar Novo Quiz
+            <Plus className="w-4 h-4" /> NOVO QUIZ
           </button>
         </div>
       </div>
 
+      {/* Barra de Pesquisa */}
+      <div className="flex items-center gap-2 bg-[#18181B] border border-[#27272A] rounded-lg px-3 py-2 max-w-md">
+        <Search className="w-4 h-4 text-[#A1A1AA]" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Filtrar quizzes por título ou categoria..."
+          className="w-full bg-transparent text-xs text-white placeholder-[#A1A1AA] focus:outline-none font-sans"
+        />
+      </div>
+
       {/* Lista de Quizzes */}
       {loading ? (
-        <div className="text-center py-20 text-slate-400">Carregando seus quizzes...</div>
-      ) : quizzes.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900/50 rounded-2xl border border-slate-800 p-8 space-y-4">
-          <Sparkles className="w-12 h-12 text-indigo-400 mx-auto" />
-          <h3 className="text-xl font-bold text-white">Nenhum quiz encontrado</h3>
-          <p className="text-sm text-slate-400 max-w-md mx-auto">
-            Você ainda não possui nenhum quiz criado. Clique no botão abaixo para começar agora mesmo!
+        <div className="text-center py-20 text-[#A1A1AA] font-mono text-xs">CARREGANDO QUESTIONÁRIOS...</div>
+      ) : filteredQuizzes.length === 0 ? (
+        <div className="hud-panel p-10 text-center space-y-4">
+          <Sparkles className="w-8 h-8 text-[#00E5FF] mx-auto" />
+          <h3 className="text-base font-bold text-white uppercase font-mono">Nenhum quiz encontrado</h3>
+          <p className="text-xs text-[#A1A1AA] max-w-md mx-auto">
+            Crie um novo quiz ou importe um arquivo de backup para começar.
           </p>
           <button
             onClick={handleStartCreate}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-600/25"
+            className="px-5 py-2 rounded-lg bg-[#00E5FF] text-[#03060A] font-mono font-bold text-xs uppercase"
           >
-            Criar Meu Primeiro Quiz
+            CRIAR NOVO QUIZ
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {quizzes.map((quiz) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredQuizzes.map((quiz) => (
             <div
               key={quiz.id}
-              className="bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-5 flex flex-col justify-between shadow-xl transition-all group"
+              className="hud-panel p-5 flex flex-col justify-between hover:border-[#00E5FF]/50 transition-all group"
             >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/20 uppercase">
                     {quiz.category || 'Geral'}
                   </span>
-                  <span className="text-xs text-slate-400 font-medium">
-                    {quiz.questions.length} perguntas
+                  <span className="font-mono text-[11px] text-[#A1A1AA]">
+                    {quiz.questions.length} FASES
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-2 line-clamp-1 group-hover:text-indigo-300 transition-colors">
+                <h3 className="text-base font-bold text-white mb-1.5 line-clamp-1 group-hover:text-[#00E5FF] transition-colors font-sans uppercase tracking-tight">
                   {quiz.title}
                 </h3>
-                <p className="text-xs text-slate-400 line-clamp-2 mb-4">
+                <p className="text-xs text-[#A1A1AA] line-clamp-2 mb-4">
                   {quiz.description || 'Sem descrição.'}
                 </p>
 
-                <div className="flex items-center gap-2 text-xs text-slate-400 mb-6 bg-slate-950 p-2 rounded-lg border border-slate-800/80">
-                  <Award className="w-3.5 h-3.5 text-amber-400" />
+                <div className="flex items-center gap-2 text-[11px] text-[#A1A1AA] mb-5 bg-[#03060A] p-2 rounded border border-[#27272A] font-mono">
+                  <Award className="w-3.5 h-3.5 text-[#00E5FF]" />
                   <span>
-                    Modo:{' '}
-                    <strong className="text-slate-200">
+                    MODO:{' '}
+                    <strong className="text-white">
                       {quiz.gameMode === 'speed_bonus'
-                        ? 'Bônus por Velocidade'
+                        ? 'BÔNUS VELOCIDADE'
                         : quiz.gameMode === 'traditional'
-                        ? 'Tradicional (Fixo)'
-                        : 'Eliminatório'}
+                        ? 'TRADICIONAL'
+                        : 'ELIMINATÓRIO'}
                     </strong>
                   </span>
                 </div>
               </div>
 
-              {/* Botões de Ação do Card */}
-              <div className="space-y-2 pt-4 border-t border-slate-800">
+              {/* Botões de Ação */}
+              <div className="space-y-2 pt-3 border-t border-[#27272A]">
                 <button
                   onClick={() => onStartQuiz(quiz.id)}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition-all"
+                  className="w-full py-2.5 rounded-lg bg-[#00E5FF] hover:bg-[#00c8e0] text-[#03060A] font-mono font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(0,229,255,0.25)] transition-all"
                 >
-                  <Play className="w-4 h-4 fill-white" /> Apresentar no Telão
+                  <Play className="w-3.5 h-3.5 fill-current" /> ABRIR NO TELÃO
                 </button>
 
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 font-mono text-xs">
                   <button
                     onClick={() => handleEdit(quiz)}
-                    className="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center justify-center gap-1 transition-colors"
+                    className="flex-1 py-1.5 rounded bg-[#03060A] hover:bg-[#27272A] text-white border border-[#27272A] flex items-center justify-center gap-1 transition-all"
                   >
-                    <Edit3 className="w-3.5 h-3.5" /> Editar
+                    <Edit3 className="w-3 h-3 text-[#00E5FF]" /> EDITAR
                   </button>
                   <button
                     onClick={() => handleDuplicate(quiz)}
                     title="Duplicar Quiz"
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                    className="p-1.5 rounded bg-[#03060A] hover:bg-[#27272A] text-[#A1A1AA] hover:text-white border border-[#27272A] transition-all"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => handleDelete(quiz.id)}
                     title="Excluir Quiz"
-                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 transition-colors"
+                    className="p-1.5 rounded bg-[#03060A] hover:bg-[#E51C24]/20 text-[#A1A1AA] hover:text-[#E51C24] border border-[#27272A] hover:border-[#E51C24]/50 transition-all"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -381,64 +440,65 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
       {/* Modal / Painel de Edição de Quiz */}
       {editingQuiz && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 overflow-y-auto p-4 sm:p-6 flex justify-center">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full p-6 sm:p-8 shadow-2xl my-auto space-y-8 text-left">
-            {/* Cabeçalho do Editor */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="hud-panel max-w-4xl w-full p-6 sm:p-8 my-auto space-y-6 text-left">
+            <div className="flex items-center justify-between border-b border-[#27272A] pb-4">
               <div>
-                <h2 className="text-2xl font-bold text-white">
-                  {isCreating ? 'Criar Novo Quiz' : 'Editar Quiz'}
+                <span className="text-[10px] font-mono text-[#00E5FF] uppercase tracking-wider block">
+                  EDITOR DE MISSÃO /// OPERATIVE
+                </span>
+                <h2 className="text-xl font-bold text-white uppercase tracking-tight font-sans">
+                  {isCreating ? 'Criar Novo Quiz' : 'Editar Questionário'}
                 </h2>
-                <p className="text-xs text-slate-400">Configure as perguntas, tempo e pontuação.</p>
               </div>
               <button
                 onClick={() => setEditingQuiz(null)}
-                className="text-slate-400 hover:text-white text-2xl font-bold p-2"
+                className="text-[#A1A1AA] hover:text-white font-mono text-sm"
               >
-                ✕
+                [FECHAR]
               </button>
             </div>
 
-            {/* Informações Básicas do Quiz */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Configurações Gerais */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
               <div className="md:col-span-2 space-y-1">
-                <label className="text-xs font-semibold text-slate-300">Título do Quiz *</label>
+                <label className="text-[#A1A1AA] uppercase">TÍTULO DO QUIZ *</label>
                 <input
                   type="text"
                   value={editingQuiz.title}
                   onChange={(e) => setEditingQuiz({ ...editingQuiz, title: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-[#03060A] border border-[#27272A] rounded-lg px-3 py-2 text-white font-sans text-sm focus:border-[#00E5FF] focus:outline-none"
                   placeholder="Ex: Super Quiz de Gênesis"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">Categoria</label>
+                <label className="text-[#A1A1AA] uppercase">CATEGORIA</label>
                 <input
                   type="text"
                   value={editingQuiz.category}
                   onChange={(e) => setEditingQuiz({ ...editingQuiz, category: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-[#03060A] border border-[#27272A] rounded-lg px-3 py-2 text-white font-sans text-sm focus:border-[#00E5FF] focus:outline-none"
                   placeholder="Ex: EBD Jovens"
                 />
               </div>
 
               <div className="md:col-span-2 space-y-1">
-                <label className="text-xs font-semibold text-slate-300">Descrição</label>
+                <label className="text-[#A1A1AA] uppercase">DESCRIÇÃO</label>
                 <input
                   type="text"
                   value={editingQuiz.description}
                   onChange={(e) => setEditingQuiz({ ...editingQuiz, description: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  placeholder="Breve descrição da dinâmica..."
+                  className="w-full bg-[#03060A] border border-[#27272A] rounded-lg px-3 py-2 text-white font-sans text-xs focus:border-[#00E5FF] focus:outline-none"
+                  placeholder="Breve resumo da dinâmica..."
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-300">Estilo de Jogo</label>
+                <label className="text-[#A1A1AA] uppercase">MODO DE JOGO</label>
                 <select
                   value={editingQuiz.gameMode}
                   onChange={(e) => setEditingQuiz({ ...editingQuiz, gameMode: e.target.value as GameMode })}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full bg-[#03060A] border border-[#27272A] rounded-lg px-3 py-2 text-white text-xs focus:border-[#00E5FF] focus:outline-none"
                 >
                   <option value="speed_bonus">⚡ Bônus por Velocidade (Mentimeter)</option>
                   <option value="traditional">🎯 Tradicional (Pontos Fixos)</option>
@@ -447,62 +507,70 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
               </div>
             </div>
 
-            {/* Lista de Perguntas */}
-            <div className="space-y-6 pt-4 border-t border-slate-800">
+            {/* Perguntas */}
+            <div className="space-y-5 pt-4 border-t border-[#27272A]">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <span>Perguntas do Quiz ({editingQuiz.questions.length})</span>
+                <h3 className="text-sm font-mono font-bold text-white uppercase tracking-wider">
+                  QUESTÕES CADASTRADAS ({editingQuiz.questions.length})
                 </h3>
-                <button
-                  onClick={addQuestion}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/50 text-xs font-semibold flex items-center gap-1 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar Pergunta
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowBankModal(true)}
+                    className="px-2.5 py-1.5 rounded-lg bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/30 hover:bg-[#00E5FF]/20 text-xs font-mono font-bold uppercase transition-all flex items-center gap-1"
+                  >
+                    <BookMarked className="w-3.5 h-3.5" /> BANCO DE QUESTÕES
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={addQuestion}
+                    className="px-2.5 py-1.5 rounded-lg bg-[#18181B] text-white border border-[#27272A] hover:border-[#00E5FF] text-xs font-mono font-bold uppercase transition-all flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#00E5FF]" /> ADICIONAR
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {editingQuiz.questions.map((question, qIdx) => (
                   <div
                     key={question.id}
-                    className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 relative"
+                    className="bg-[#03060A] border border-[#27272A] rounded-lg p-4 space-y-3 relative"
                   >
-                    <div className="flex items-center justify-between border-b border-slate-850 pb-3">
-                      <span className="font-bold text-indigo-400 text-sm flex items-center gap-1.5">
-                        <span className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs">
-                          {qIdx + 1}
-                        </span>
-                        Pergunta #{qIdx + 1}
+                    <div className="flex items-center justify-between border-b border-[#27272A] pb-2 font-mono text-xs">
+                      <span className="font-bold text-[#00E5FF]">
+                        /// FASE {qIdx + 1} DE {editingQuiz.questions.length}
                       </span>
 
                       <div className="flex items-center gap-1">
                         <button
                           disabled={qIdx === 0}
                           onClick={() => moveQuestion(qIdx, 'up')}
-                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30"
-                          title="Mover para cima"
+                          className="p-1 text-[#A1A1AA] hover:text-white disabled:opacity-20"
+                          title="Subir"
                         >
-                          <ArrowUp className="w-4 h-4" />
+                          <ArrowUp className="w-3.5 h-3.5" />
                         </button>
                         <button
                           disabled={qIdx === editingQuiz.questions.length - 1}
                           onClick={() => moveQuestion(qIdx, 'down')}
-                          className="p-1 text-slate-400 hover:text-white disabled:opacity-30"
-                          title="Mover para baixo"
+                          className="p-1 text-[#A1A1AA] hover:text-white disabled:opacity-20"
+                          title="Descer"
                         >
-                          <ArrowDown className="w-4 h-4" />
+                          <ArrowDown className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => removeQuestion(qIdx)}
-                          className="p-1 text-slate-400 hover:text-rose-400 ml-2"
-                          title="Excluir pergunta"
+                          className="p-1 text-[#A1A1AA] hover:text-[#E51C24] ml-2"
+                          title="Excluir"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
 
-                    {/* Texto da Pergunta */}
+                    {/* Enunciado */}
                     <div>
                       <input
                         type="text"
@@ -512,15 +580,15 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
                           list[qIdx].text = e.target.value;
                           setEditingQuiz({ ...editingQuiz, questions: list });
                         }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white font-medium text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                        placeholder="Digite o enunciado da pergunta..."
+                        className="w-full bg-[#18181B] border border-[#27272A] rounded-lg px-3 py-2 text-white font-sans text-sm focus:border-[#00E5FF] focus:outline-none"
+                        placeholder="Digite o enunciado da questão..."
                       />
                     </div>
 
-                    {/* Configurações da Pergunta: Tempo & Pontos */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    {/* Tempo, Pontos, Explicação e Imagem */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
                       <div>
-                        <label className="text-slate-400 block mb-1">Tempo Limite</label>
+                        <label className="text-[#A1A1AA] block mb-1">TEMPO LIMITE</label>
                         <select
                           value={question.timeLimit}
                           onChange={(e) => {
@@ -528,18 +596,18 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
                             list[qIdx].timeLimit = parseInt(e.target.value, 10);
                             setEditingQuiz({ ...editingQuiz, questions: list });
                           }}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200"
+                          className="w-full bg-[#18181B] border border-[#27272A] rounded px-2 py-1.5 text-white"
                         >
-                          <option value={10}>10 segundos</option>
-                          <option value={15}>15 segundos</option>
-                          <option value={20}>20 segundos</option>
-                          <option value={30}>30 segundos</option>
-                          <option value={60}>60 segundos</option>
+                          <option value={10}>10 SEGUNDOS</option>
+                          <option value={15}>15 SEGUNDOS</option>
+                          <option value={20}>20 SEGUNDOS</option>
+                          <option value={30}>30 SEGUNDOS</option>
+                          <option value={60}>60 SEGUNDOS</option>
                         </select>
                       </div>
 
                       <div>
-                        <label className="text-slate-400 block mb-1">Pontos Base</label>
+                        <label className="text-[#A1A1AA] block mb-1">PONTOS BASE</label>
                         <select
                           value={question.points}
                           onChange={(e) => {
@@ -547,16 +615,16 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
                             list[qIdx].points = parseInt(e.target.value, 10);
                             setEditingQuiz({ ...editingQuiz, questions: list });
                           }}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200"
+                          className="w-full bg-[#18181B] border border-[#27272A] rounded px-2 py-1.5 text-white"
                         >
-                          <option value={500}>500 pontos</option>
-                          <option value={1000}>1000 pontos (Padrão)</option>
-                          <option value={2000}>2000 pontos (Dobro)</option>
+                          <option value={500}>500 PTS</option>
+                          <option value={1000}>1000 PTS</option>
+                          <option value={2000}>2000 PTS</option>
                         </select>
                       </div>
 
                       <div className="col-span-2">
-                        <label className="text-slate-400 block mb-1">Explicação / Referência Bíblica (Opcional)</label>
+                        <label className="text-[#A1A1AA] block mb-1">REFERÊNCIA / EXPLICAÇÃO DIDÁTICA</label>
                         <input
                           type="text"
                           value={question.explanation || ''}
@@ -565,43 +633,40 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
                             list[qIdx].explanation = e.target.value;
                             setEditingQuiz({ ...editingQuiz, questions: list });
                           }}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200"
+                          className="w-full bg-[#18181B] border border-[#27272A] rounded px-2 py-1.5 text-white text-xs font-sans"
                           placeholder="Ex: Gênesis 6:14 - A arca foi construída..."
                         />
                       </div>
                     </div>
 
-                    {/* Alternativas de Resposta */}
+                    {/* Alternativas */}
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-300 block">
-                        Alternativas (Marque o círculo da resposta correta):
+                      <label className="text-[11px] font-mono text-[#A1A1AA] uppercase block">
+                        ALTERNATIVAS (CLIQUE NO SÍMBOLO PARA DEFINIR A CORRETA):
                       </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {question.options.map((opt, optIdx) => {
-                          const colors = [
-                            'border-rose-500/40 focus-within:border-rose-500',
-                            'border-blue-500/40 focus-within:border-blue-500',
-                            'border-amber-500/40 focus-within:border-amber-500',
-                            'border-emerald-500/40 focus-within:border-emerald-500',
-                          ];
                           const symbols = ['▲', '◆', '●', '■'];
-
                           return (
                             <div
                               key={opt.id}
-                              className={`flex items-center gap-2 p-2 rounded-xl bg-slate-900 border ${colors[optIdx % colors.length]} transition-colors`}
+                              className={`flex items-center gap-2 p-2 rounded-lg bg-[#18181B] border transition-all ${
+                                opt.isCorrect
+                                  ? 'border-[#00E5FF] shadow-[0_0_10px_rgba(0,229,255,0.2)]'
+                                  : 'border-[#27272A]'
+                              }`}
                             >
                               <button
                                 type="button"
                                 onClick={() => setCorrectOption(qIdx, opt.id)}
-                                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                                className={`w-6 h-6 rounded flex items-center justify-center text-xs font-mono font-bold transition-all ${
                                   opt.isCorrect
-                                    ? 'bg-emerald-500 text-white ring-2 ring-emerald-400'
-                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                                    ? 'bg-[#00E5FF] text-[#03060A]'
+                                    : 'bg-[#03060A] text-[#A1A1AA] hover:text-white border border-[#27272A]'
                                 }`}
                                 title={opt.isCorrect ? 'Resposta Correta' : 'Marcar como Correta'}
                               >
-                                {opt.isCorrect ? <Check className="w-4 h-4" /> : symbols[optIdx]}
+                                {opt.isCorrect ? <Check className="w-3.5 h-3.5" /> : symbols[optIdx]}
                               </button>
                               <input
                                 type="text"
@@ -611,7 +676,7 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
                                   list[qIdx].options[optIdx].text = e.target.value;
                                   setEditingQuiz({ ...editingQuiz, questions: list });
                                 }}
-                                className="flex-1 bg-transparent text-white text-xs focus:outline-none"
+                                className="flex-1 bg-transparent text-white text-xs focus:outline-none font-sans"
                                 placeholder={`Alternativa ${optIdx + 1}...`}
                               />
                             </div>
@@ -622,32 +687,77 @@ export const QuizManager: React.FC<QuizManagerProps> = ({ onStartQuiz }) => {
                   </div>
                 ))}
               </div>
-
-              <div className="text-center pt-2">
-                <button
-                  onClick={addQuestion}
-                  className="px-6 py-2 rounded-xl border border-dashed border-slate-700 hover:border-indigo-500 text-slate-300 hover:text-indigo-400 text-xs font-semibold inline-flex items-center gap-2 transition-colors"
-                >
-                  <Plus className="w-4 h-4" /> Adicionar Outra Pergunta
-                </button>
-              </div>
             </div>
 
-            {/* Rodapé de Ações */}
-            <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-800">
+            {/* Rodapé do Editor */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#27272A] font-mono text-xs">
               <button
                 onClick={() => setEditingQuiz(null)}
-                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition-colors"
+                className="px-4 py-2 rounded-lg bg-[#03060A] hover:bg-[#27272A] text-white border border-[#27272A] uppercase"
               >
-                Cancelar
+                CANCELAR
               </button>
               <button
                 onClick={handleSaveQuiz}
-                className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/25 transition-all"
+                className="px-5 py-2 rounded-lg bg-[#00E5FF] hover:bg-[#00c8e0] text-[#03060A] font-bold uppercase shadow-[0_0_12px_rgba(0,229,255,0.3)]"
               >
-                Salvar Quiz
+                SALVAR ALTERAÇÕES
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Banco de Questões Prontas */}
+      {showBankModal && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="hud-panel max-w-2xl w-full p-6 space-y-4 max-h-[85vh] flex flex-col text-left">
+            <div className="flex items-center justify-between border-b border-[#27272A] pb-3">
+              <div>
+                <span className="text-[10px] font-mono text-[#00E5FF] uppercase tracking-wider block">
+                  BIBLIOTECA TÁTICA /// QUESTÕES CURADAS
+                </span>
+                <h3 className="text-base font-bold text-white uppercase">
+                  Inserir Pergunta do Banco
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowBankModal(false)}
+                className="text-[#A1A1AA] hover:text-white font-mono text-xs"
+              >
+                [X]
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {questionBank.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-[#03060A] border border-[#27272A] hover:border-[#00E5FF]/40 p-4 rounded-lg flex items-start justify-between gap-4 transition-all"
+                >
+                  <div className="space-y-1 flex-1">
+                    <span className="text-[10px] font-mono text-[#00E5FF] uppercase bg-[#00E5FF]/10 px-2 py-0.5 rounded border border-[#00E5FF]/20">
+                      {item.category}
+                    </span>
+                    <h4 className="text-xs font-bold text-white mt-1.5">{item.question.text}</h4>
+                    <p className="text-[11px] text-[#A1A1AA]">{item.question.explanation}</p>
+                  </div>
+                  <button
+                    onClick={() => handleInsertFromBank(item)}
+                    className="px-3 py-1.5 rounded bg-[#00E5FF] hover:bg-[#00c8e0] text-[#03060A] font-mono font-bold text-[11px] uppercase tracking-wider shrink-0"
+                  >
+                    + INSERIR
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowBankModal(false)}
+              className="w-full py-2 bg-[#18181B] hover:bg-[#27272A] text-white font-mono text-xs font-bold uppercase rounded-lg border border-[#27272A]"
+            >
+              FECHAR BIBLIOTECA
+            </button>
           </div>
         </div>
       )}

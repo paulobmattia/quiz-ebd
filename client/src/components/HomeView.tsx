@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, PlusCircle, Smartphone, Zap, Users, Infinity as InfinityIcon, ShieldCheck } from 'lucide-react';
+import { Play, PlusCircle, Smartphone, Zap, Users, Infinity as InfinityIcon, ShieldCheck, Crosshair } from 'lucide-react';
 import { soundManager } from '../utils/audio.js';
 
 interface HomeViewProps {
@@ -24,161 +24,168 @@ export const HomeView: React.FC<HomeViewProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-12">
-      {/* Hero Banner */}
-      <div className="text-center space-y-4 py-6">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold uppercase tracking-wider">
-          <Zap className="w-3.5 h-3.5" /> Quizzes ao Vivo com o Celular
-        </div>
-        <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight">
-          A dinâmica de quiz perfeita para sua{' '}
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
-            EBD ou Sala de Aula
-          </span>
-        </h1>
-        <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-          Tudo o que você ama no <strong>Mentimeter</strong> e <strong>Kahoot</strong>: perguntas interativas no telão, respostas em tempo real no celular, placar ao vivo e bônus de velocidade — sem limitações e 100% gratuito.
-        </p>
-      </div>
-
-      {/* Cards de Ação Principal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Entrar com PIN (Aluno) */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-6 shadow-xl transition-all duration-300 flex flex-col justify-between group">
-          <div className="space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-              <Smartphone className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white mb-1">Entrar em um Quiz</h2>
-              <p className="text-sm text-slate-400">
-                Está na aula ou evento? Digite o PIN de 6 dígitos que aparece no telão do professor.
-              </p>
-            </div>
+    <div className="relative min-h-[calc(100vh-65px)] cyber-grid radial-ambient flex flex-col justify-between py-10 px-4 sm:px-6">
+      <div className="max-w-5xl mx-auto w-full space-y-12">
+        {/* Header Tático Operative Selection */}
+        <div className="text-center space-y-4 pt-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18181B] border border-[#27272A] text-[#00E5FF] font-mono text-xs tracking-widest uppercase">
+            <span className="w-2 h-2 rounded-full bg-[#00E5FF] animate-pulse" />
+            OPERATIVE /// SECTOR EBD -- QUIZ SYSTEM
           </div>
 
-          <form onSubmit={handleJoin} className="mt-6 space-y-3">
-            <input
-              type="text"
-              maxLength={6}
-              placeholder="Ex: 849201"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
-              className="w-full text-center tracking-widest font-mono text-xl py-3 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-            />
-            <button
-              type="submit"
-              disabled={!pinInput.trim()}
-              className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition-all"
-            >
-              Participar Agora
-            </button>
-          </form>
+          <h1 className="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-tight uppercase font-sans">
+            DINÂMICA DE QUIZ <br />
+            <span className="text-[#00E5FF] drop-shadow-[0_0_25px_rgba(0,229,255,0.3)]">
+              EM TEMPO REAL
+            </span>
+          </h1>
+
+          <p className="text-sm sm:text-base text-[#A1A1AA] max-w-2xl mx-auto font-sans leading-relaxed">
+            Plataforma de alta precisão inspirada no Mentimeter e Kahoot. Interação ao vivo no telão, respostas no smartphone, bônus de velocidade e <strong className="text-white">zero restrições</strong>.
+          </p>
         </div>
 
-        {/* Card 2: Apresentar no Telão (Professor - Início Imediato) */}
-        <div className="bg-gradient-to-b from-purple-950/40 to-slate-900 border border-purple-800/40 hover:border-purple-500/60 rounded-2xl p-6 shadow-xl transition-all duration-300 flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
-          <div className="space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-              <Play className="w-6 h-6 fill-purple-400" />
-            </div>
-            <div>
-              <div className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 mb-1">
-                RECOMENDADO
+        {/* Grade de Ações Principais (Cards Táticos de 8px radius) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Card 1: Entrar com PIN (Participante) */}
+          <div className="hud-panel p-6 flex flex-col justify-between hover:border-[#00E5FF]/60 transition-all duration-300 group relative">
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-lg bg-[#03060A] border border-[#27272A] group-hover:border-[#00E5FF] flex items-center justify-center text-[#00E5FF] transition-all">
+                <Smartphone className="w-5 h-5" />
               </div>
-              <h2 className="text-xl font-bold text-white mb-1">Apresentar Quiz Rápido</h2>
-              <p className="text-sm text-slate-400">
-                Inicie instantaneamente o <strong>"Super Quiz Bíblico - Heróis da Fé"</strong> pré-configurado no telão com QR Code!
-              </p>
+              <div>
+                <span className="text-[10px] font-mono text-[#00E5FF] uppercase tracking-wider block mb-1">
+                  /// 01 -- PARTICIPANTE
+                </span>
+                <h2 className="text-lg font-bold text-white uppercase tracking-tight">Entrar em um Quiz</h2>
+                <p className="text-xs text-[#A1A1AA] mt-1">
+                  Digite o PIN de 6 dígitos projetado no telão para conectar seu dispositivo.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleJoin} className="mt-6 space-y-3">
+              <input
+                type="text"
+                maxLength={6}
+                placeholder="000000"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                className="w-full text-center tracking-widest font-mono text-2xl py-2.5 px-4 rounded-lg bg-[#03060A] border border-[#27272A] text-[#00E5FF] placeholder-[#27272A] focus:outline-none focus:border-[#00E5FF] transition-all"
+              />
+              <button
+                type="submit"
+                disabled={!pinInput.trim()}
+                className="w-full py-3 px-4 rounded-lg bg-[#00E5FF] hover:bg-[#00c8e0] disabled:opacity-30 disabled:cursor-not-allowed text-[#03060A] font-mono font-bold text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(0,229,255,0.3)] transition-all"
+              >
+                CONECTAR AO QUIZ
+              </button>
+            </form>
+          </div>
+
+          {/* Card 2: Apresentar no Telão (Início Rápido) */}
+          <div className="hud-panel p-6 flex flex-col justify-between border-[#E51C24]/40 hover:border-[#E51C24] transition-all duration-300 relative group overflow-hidden">
+            <div className="absolute top-0 right-0 px-2.5 py-0.5 bg-[#E51C24]/10 border-b border-l border-[#E51C24]/30 text-[#E51C24] font-mono text-[10px] font-bold uppercase tracking-wider">
+              PRONTO PARA USO
+            </div>
+
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-lg bg-[#03060A] border border-[#27272A] group-hover:border-[#E51C24] flex items-center justify-center text-[#E51C24] transition-all">
+                <Play className="w-5 h-5 fill-current" />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono text-[#E51C24] uppercase tracking-wider block mb-1">
+                  /// 02 -- APRESENTADOR
+                </span>
+                <h2 className="text-lg font-bold text-white uppercase tracking-tight">Iniciar no Telão</h2>
+                <p className="text-xs text-[#A1A1AA] mt-1">
+                  Abra imediatamente o <strong>"Super Quiz Bíblico - Heróis da Fé"</strong> com QR Code gigante para a turma.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <button
+                onClick={() => {
+                  soundManager.playClick();
+                  onQuickStart();
+                }}
+                className="w-full py-3 px-4 rounded-lg bg-[#E51C24] hover:bg-[#c9141b] text-white font-mono font-bold text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(229,28,36,0.3)] flex items-center justify-center gap-2 transition-all"
+              >
+                <Crosshair className="w-4 h-4" /> ABRIR NO TELÃO
+              </button>
             </div>
           </div>
 
-          <div className="mt-6">
-            <button
-              onClick={() => {
-                soundManager.playClick();
-                onQuickStart();
-              }}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition-all"
-            >
-              <Play className="w-4 h-4 fill-white" /> Abrir no Telão / Projetor
-            </button>
+          {/* Card 3: Criador e Editor */}
+          <div className="hud-panel p-6 flex flex-col justify-between hover:border-[#27272A] hover:bg-[#1c1c20] transition-all duration-300 group">
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-lg bg-[#03060A] border border-[#27272A] group-hover:border-white/40 flex items-center justify-center text-white transition-all">
+                <PlusCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] font-mono text-[#A1A1AA] uppercase tracking-wider block mb-1">
+                  /// 03 -- GERENCIADOR
+                </span>
+                <h2 className="text-lg font-bold text-white uppercase tracking-tight">Estúdio de Quizzes</h2>
+                <p className="text-xs text-[#A1A1AA] mt-1">
+                  Crie questionários personalizados, defina tempos, modos de jogo e use o banco de questões.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <button
+                onClick={() => {
+                  soundManager.playClick();
+                  onOpenManager();
+                }}
+                className="w-full py-3 px-4 rounded-lg bg-[#03060A] hover:bg-[#27272A] border border-[#27272A] text-white font-mono font-bold text-xs uppercase tracking-widest transition-all"
+              >
+                EDITAR E CRIAR
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Card 3: Criar / Gerenciar Quizzes */}
-        <div className="bg-slate-900/90 border border-slate-800 hover:border-pink-500/50 rounded-2xl p-6 shadow-xl transition-all duration-300 flex flex-col justify-between group">
-          <div className="space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-              <PlusCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white mb-1">Criador de Quizzes</h2>
-              <p className="text-sm text-slate-400">
-                Monte suas próprias perguntas, defina alternativas, tempo de resposta, explicações bíblicas e modos de jogo.
+        {/* Comparativo Tático */}
+        <div className="pt-6 border-t border-[#27272A]">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-3.5 rounded-lg bg-[#18181B]/50 border border-[#27272A] space-y-1">
+              <div className="flex items-center gap-1.5 text-[#00E5FF] text-xs font-mono font-bold uppercase">
+                <InfinityIcon className="w-3.5 h-3.5" /> QUESTÕES ILIMITADAS
+              </div>
+              <p className="text-[11px] text-[#A1A1AA]">
+                Crie quantas perguntas desejar sem limites de plano pago.
               </p>
             </div>
-          </div>
 
-          <div className="mt-6">
-            <button
-              onClick={() => {
-                soundManager.playClick();
-                onOpenManager();
-              }}
-              className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold flex items-center justify-center gap-2 border border-slate-700 transition-all"
-            >
-              Gerenciar Quizzes
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Vantagens / Diferenciais */}
-      <div className="pt-6 border-t border-slate-800">
-        <h3 className="text-center text-lg font-bold text-white mb-8">
-          Por que esta plataforma supera as limitações das ferramentas pagas?
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <InfinityIcon className="w-5 h-5" />
+            <div className="p-3.5 rounded-lg bg-[#18181B]/50 border border-[#27272A] space-y-1">
+              <div className="flex items-center gap-1.5 text-[#00E5FF] text-xs font-mono font-bold uppercase">
+                <Users className="w-3.5 h-3.5" /> PARTICIPANTES LIVRES
+              </div>
+              <p className="text-[11px] text-[#A1A1AA]">
+                Conecte salas inteiras e eventos sem custo por usuário.
+              </p>
             </div>
-            <h4 className="font-bold text-white text-sm">Sem Limite de Questões</h4>
-            <p className="text-xs text-slate-400">
-              O Mentimeter limita a 2-3 perguntas no plano grátis. Aqui você cria 10, 30 ou 100 perguntas à vontade.
-            </p>
-          </div>
 
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
-              <Users className="w-5 h-5" />
+            <div className="p-3.5 rounded-lg bg-[#18181B]/50 border border-[#27272A] space-y-1">
+              <div className="flex items-center gap-1.5 text-[#E51C24] text-xs font-mono font-bold uppercase">
+                <Zap className="w-3.5 h-3.5" /> VELOCIDADE TÁTICA
+              </div>
+              <p className="text-[11px] text-[#A1A1AA]">
+                Algoritmo de pontuação precisa proporcional ao tempo restante.
+              </p>
             </div>
-            <h4 className="font-bold text-white text-sm">Público Ilimitado</h4>
-            <p className="text-xs text-slate-400">
-              Conecte 10, 50 ou centenas de participantes simultâneos na mesma sala sem custos adicionais.
-            </p>
-          </div>
 
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
-              <Zap className="w-5 h-5" />
+            <div className="p-3.5 rounded-lg bg-[#18181B]/50 border border-[#27272A] space-y-1">
+              <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-mono font-bold uppercase">
+                <ShieldCheck className="w-3.5 h-3.5" /> MODOS DE JOGO
+              </div>
+              <p className="text-[11px] text-[#A1A1AA]">
+                Suporte a Bônus por Velocidade, Tradicional e Eliminatório.
+              </p>
             </div>
-            <h4 className="font-bold text-white text-sm">Bônus por Velocidade</h4>
-            <p className="text-xs text-slate-400">
-              Cálculo milimétrico: quem responde mais rápido ganha mais pontos, aumentando a adrenalina da turma!
-            </p>
-          </div>
-
-          <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 space-y-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <h4 className="font-bold text-white text-sm">Funciona no Wi-Fi Local</h4>
-            <p className="text-xs text-slate-400">
-              Pode ser executado diretamente no notebook do professor via Wi-Fi, sem depender de internet de alta velocidade.
-            </p>
           </div>
         </div>
       </div>

@@ -1,41 +1,147 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --color-bg: #03060A;
+    --color-surface: #18181B;
+    --color-primary: #00E5FF;
+    --color-secondary: #E51C24;
+    --color-accent: #E51C24;
+    --color-text-primary: #FFFFFF;
+    --color-text-secondary: #A1A1AA;
+    --color-border: #27272A;
+  }
+
   body {
-    @apply bg-slate-950 text-slate-100 antialiased min-h-screen selection:bg-indigo-500 selection:text-white;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    antialiased: true;
+    min-height: 100vh;
+    selection-background-color: #00E5FF;
+    selection-color: #03060A;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   }
 }
 
-/* Animações e efeitos para game show / quiz */
-@keyframes pulse-subtle {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); }
+/* Padrão de Grade Tática e Efeito Atmosférico */
+.cyber-grid {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(39, 39, 42, 0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(39, 39, 42, 0.25) 1px, transparent 1px);
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+.radial-ambient {
+  background: radial-gradient(circle at 50% 10%, rgba(0, 229, 255, 0.08) 0%, transparent 60%);
 }
 
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s infinite ease-in-out;
+.radial-ambient-red {
+  background: radial-gradient(circle at 50% 10%, rgba(229, 28, 36, 0.08) 0%, transparent 60%);
 }
 
-.animate-float {
-  animation: float 3s infinite ease-in-out;
+/* Painel de Superfície Tática Operative Selection */
+.hud-panel {
+  background-color: #18181B;
+  border: 1px solid #27272A;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.6);
 }
 
-/* Gradientes dos botões de resposta estilo Mentimeter / Kahoot */
-.btn-choice-red {
-  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+.hud-panel-primary {
+  background-color: #18181B;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 0 20px -3px rgba(0, 229, 255, 0.15);
 }
-.btn-choice-blue {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+
+.hud-panel-accent {
+  background-color: #18181B;
+  border: 1px solid rgba(229, 28, 36, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 0 20px -3px rgba(229, 28, 36, 0.15);
 }
-.btn-choice-yellow {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+
+/* Brilho Neon e Efeitos de Acento */
+.neon-cyan-glow {
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.4);
 }
-.btn-choice-green {
-  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+
+.neon-red-glow {
+  box-shadow: 0 0 15px rgba(229, 28, 36, 0.4);
+}
+
+.neon-border-cyan {
+  border-color: #00E5FF;
+}
+
+.neon-border-red {
+  border-color: #E51C24;
+}
+
+/* Animações e Efeitos */
+@keyframes pulse-cyan {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(0, 229, 255, 0);
+  }
+}
+
+@keyframes pulse-red {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(229, 28, 36, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(229, 28, 36, 0);
+  }
+}
+
+.animate-pulse-cyan {
+  animation: pulse-cyan 2s infinite ease-in-out;
+}
+
+.animate-pulse-red {
+  animation: pulse-red 2s infinite ease-in-out;
+}
+
+/* Estilo dos Botões de Alternativas (Alto Contraste Tático) */
+.choice-cyan {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.15) 0%, rgba(0, 229, 255, 0.05) 100%);
+  border: 1px solid rgba(0, 229, 255, 0.5);
+}
+.choice-cyan:hover, .choice-cyan:active {
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.3) 0%, rgba(0, 229, 255, 0.1) 100%);
+  border-color: #00E5FF;
+}
+
+.choice-red {
+  background: linear-gradient(135deg, rgba(229, 28, 36, 0.15) 0%, rgba(229, 28, 36, 0.05) 100%);
+  border: 1px solid rgba(229, 28, 36, 0.5);
+}
+.choice-red:hover, .choice-red:active {
+  background: linear-gradient(135deg, rgba(229, 28, 36, 0.3) 0%, rgba(229, 28, 36, 0.1) 100%);
+  border-color: #E51C24;
+}
+
+.choice-amber {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+}
+.choice-amber:hover, .choice-amber:active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.3) 0%, rgba(245, 158, 11, 0.1) 100%);
+  border-color: #f59e0b;
+}
+
+.choice-emerald {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+}
+.choice-emerald:hover, .choice-emerald:active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border-color: #10b981;
 }

@@ -173,6 +173,115 @@ const INITIAL_QUIZZES: Quiz[] = [
   },
 ];
 
+export const QUESTION_BANK: Array<{
+  id: string;
+  category: string;
+  question: Question;
+}> = [
+  {
+    id: 'qb-1',
+    category: 'Novo Testamento',
+    question: {
+      id: 'qb-q1',
+      text: 'Qual apóstolo era cobrador de impostos antes de ser chamado por Jesus?',
+      timeLimit: 20,
+      points: 1000,
+      explanation: 'Mateus 9:9 - Jesus viu um homem chamado Mateus sentado na coletoria e disse-lhe: "Siga-me".',
+      options: [
+        { id: 'qb-1-a', text: 'Lucas', isCorrect: false },
+        { id: 'qb-1-b', text: 'Mateus', isCorrect: true },
+        { id: 'qb-1-c', text: 'Bartolomeu', isCorrect: false },
+        { id: 'qb-1-d', text: 'Tomé', isCorrect: false },
+      ],
+    },
+  },
+  {
+    id: 'qb-2',
+    category: 'Antigo Testamento',
+    question: {
+      id: 'qb-q2',
+      text: 'Quantos dias e noites choveu sobre a terra durante o dilúvio?',
+      timeLimit: 20,
+      points: 1000,
+      explanation: 'Gênesis 7:12 - E caiu a chuva sobre a terra quarenta dias e quarenta noites.',
+      options: [
+        { id: 'qb-2-a', text: '40 dias e 40 noites', isCorrect: true },
+        { id: 'qb-2-b', text: '7 dias e 7 noites', isCorrect: false },
+        { id: 'qb-2-c', text: '100 dias e 100 noites', isCorrect: false },
+        { id: 'qb-2-d', text: '30 dias e 30 noites', isCorrect: false },
+      ],
+    },
+  },
+  {
+    id: 'qb-3',
+    category: 'Mulheres da Bíblia',
+    question: {
+      id: 'qb-q3',
+      text: 'Qual rainha judia arriscou a própria vida perante o rei Assuero para salvar seu povo?',
+      timeLimit: 20,
+      points: 1000,
+      explanation: 'Ester 4:16 - "...se perecer, pereci." A rainha Ester intercedeu pelo povo judeu.',
+      options: [
+        { id: 'qb-3-a', text: 'Rute', isCorrect: false },
+        { id: 'qb-3-b', text: 'Sara', isCorrect: false },
+        { id: 'qb-3-c', text: 'Ester', isCorrect: true },
+        { id: 'qb-3-d', text: 'Débora', isCorrect: false },
+      ],
+    },
+  },
+  {
+    id: 'qb-4',
+    category: 'Gênesis',
+    question: {
+      id: 'qb-q4',
+      text: 'Qual foi o sinal colocado nas nuvens como aliança de que não haveria outro dilúvio universal?',
+      timeLimit: 15,
+      points: 1000,
+      explanation: 'Gênesis 9:13 - "O meu arco tenho posto nas nuvens; este será por sinal da aliança entre mim e a terra."',
+      options: [
+        { id: 'qb-4-a', text: 'O Arco-Íris', isCorrect: true },
+        { id: 'qb-4-b', text: 'Uma Estrela Cadente', isCorrect: false },
+        { id: 'qb-4-c', text: 'Uma Nuvem de Fogo', isCorrect: false },
+        { id: 'qb-4-d', text: 'Um Relâmpago', isCorrect: false },
+      ],
+    },
+  },
+  {
+    id: 'qb-5',
+    category: 'Geral',
+    question: {
+      id: 'qb-q5',
+      text: 'Quantos livros compõem a Bíblia Sagrada tradicional (39 no AT e 27 no NT)?',
+      timeLimit: 20,
+      points: 1000,
+      explanation: 'A Bíblia contém 66 livros no cânon protestante: 39 no Antigo Testamento e 27 no Novo Testamento.',
+      options: [
+        { id: 'qb-5-a', text: '66 livros', isCorrect: true },
+        { id: 'qb-5-b', text: '73 livros', isCorrect: false },
+        { id: 'qb-5-c', text: '50 livros', isCorrect: false },
+        { id: 'qb-5-d', text: '70 livros', isCorrect: false },
+      ],
+    },
+  },
+  {
+    id: 'qb-6',
+    category: 'Antigo Testamento',
+    question: {
+      id: 'qb-q6',
+      text: 'Quem foi colocado num cesto de junco nas águas do rio Nilo para ser salvo quando bebê?',
+      timeLimit: 20,
+      points: 1000,
+      explanation: 'Êxodo 2:3 - Joquebede colocou o menino Moisés no cesto de junco entre os juncos à beira do rio.',
+      options: [
+        { id: 'qb-6-a', text: 'Moisés', isCorrect: true },
+        { id: 'qb-6-b', text: 'Josué', isCorrect: false },
+        { id: 'qb-6-c', text: 'Samuel', isCorrect: false },
+        { id: 'qb-6-d', text: 'Sansão', isCorrect: false },
+      ],
+    },
+  },
+];
+
 export class StorageService {
   constructor() {
     this.ensureDataDir();
@@ -201,6 +310,10 @@ export class StorageService {
   public getQuizById(id: string): Quiz | undefined {
     const quizzes = this.getAllQuizzes();
     return quizzes.find((q) => q.id === id);
+  }
+
+  public getQuestionBank() {
+    return QUESTION_BANK;
   }
 
   public saveQuiz(quizData: Omit<Quiz, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Quiz {
@@ -258,3 +371,4 @@ export class StorageService {
 }
 
 export const storage = new StorageService();
+

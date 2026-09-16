@@ -8,6 +8,12 @@ import {
   PlayerAnswer
 } from '../types.js';
 
+interface PlayerSessionStats {
+  correctCount: number;
+  wrongCount: number;
+  totalResponseTimeMs: number;
+}
+
 interface GameSession {
   pin: string;
   quiz: Quiz;
@@ -17,16 +23,48 @@ interface GameSession {
   questionStartTime: number;
   players: Map<string, Player>; // socketId -> Player
   answers: Map<string, PlayerAnswer>; // socketId -> PlayerAnswer
+  playerStats: Map<string, PlayerSessionStats>; // socketId -> stats
   timerInterval?: NodeJS.Timeout;
   timeRemaining: number;
+}
+
+// Sanitização de entradas para proteção Anti-XSS e injeção de HTML
+function sanitizeString(str: string, maxLength: number = 30): string {
+  if (!str) return '';
+  return str
+    .replace(/[<>'"/\\&]/g, '') // Remove caracteres de injeção
+    .trim()
+    .slice(0, maxLength);
 }
 
 export class GameManager {
   private io: Server;
   private games: Map<string, GameSession> = new Map(); // pin -> session
+  private rateLimitMap: Map<string, { count: number; lastReset: number }> = new Map();
 
   constructor(io: Server) {
     this.io = io;
+  }
+
+  // Rate Limiting para prevenir flood / DoS em WebSockets
+  private checkRateLimit(socketId: string, maxPerSecond: number = 8): boolean {
+    const now = Date.now();
+    const entry = this.rateLimitMap.get(socketId) || { count: 0, lastReset: now };
+
+    if (now - entry.lastReset > 1000) {
+      entry.count = 1;
+      entry.lastReset = now;
+      this.rateLimitMap.set(socketId, entry);
+      return true;
+    }
+
+    if (entry.count >= maxPerSecond) {
+      return false; // Bloqueia solicitação excessiva
+    }
+
+    entry.count += 1;
+    this.rateLimitMap.set(socketId, entry);
+    return true;
   }
 
   public generatePin(): string {
@@ -48,6 +86,7 @@ export class GameManager {
       questionStartTime: 0,
       players: new Map(),
       answers: new Map(),
+      playerStats: new Map(),
       timeRemaining: 0,
     };
 
@@ -78,6 +117,10 @@ export class GameManager {
   }
 
   public joinPlayer(pin: string, nickname: string, avatar: string, socket: Socket): { success: boolean; error?: string } {
+    if (!this.checkRateLimit(socket.id)) {
+      return { success: false, error: 'Muitas tentativas. Aguarde um instante.' };
+    }
+
     const session = this.games.get(pin);
     if (!session) {
       return { success: false, error: 'Sala não encontrada. Verifique o PIN digitado.' };
@@ -87,28 +130,29 @@ export class GameManager {
       return { success: false, error: 'Este quiz já começou ou foi finalizado.' };
     }
 
-    const trimmedNick = nickname.trim();
-    if (!trimmedNick) {
-      return { success: false, error: 'Por favor, digite um nome ou apelido válido.' };
+    const sanitizedNick = sanitizeString(nickname, 20);
+    if (!sanitizedNick || sanitizedNick.length < 2) {
+      return { success: false, error: 'Por favor, digite um nome ou apelido válido (mínimo 2 letras).' };
     }
 
-    // Verifica se nome já existe
+    // Validação de unicidade de nome na mesma sala
     for (const p of session.players.values()) {
-      if (p.nickname.toLowerCase() === trimmedNick.toLowerCase()) {
+      if (p.nickname.toLowerCase() === sanitizedNick.toLowerCase()) {
         return { success: false, error: 'Já existe um participante com esse nome nesta sala. Escolha outro.' };
       }
     }
 
     const player: Player = {
       id: socket.id,
-      nickname: trimmedNick,
-      avatar: avatar || '⭐',
+      nickname: sanitizedNick,
+      avatar: avatar || '⚡',
       score: 0,
       streak: 0,
       connected: true,
     };
 
     session.players.set(socket.id, player);
+    session.playerStats.set(socket.id, { correctCount: 0, wrongCount: 0, totalResponseTimeMs: 0 });
     socket.join(pin);
 
     // Notifica todos na sala
@@ -136,6 +180,7 @@ export class GameManager {
 
   public startGame(pin: string, hostSocketId: string) {
     const session = this.games.get(pin);
+    // Proteção Anti-Hijacking: validação estrita do hostSocketId
     if (!session || session.hostSocketId !== hostSocketId) return;
 
     session.status = 'COUNTDOWN';
@@ -201,6 +246,10 @@ export class GameManager {
   }
 
   public submitAnswer(socketId: string, pin: string, optionId: string): { success: boolean; error?: string } {
+    if (!this.checkRateLimit(socketId)) {
+      return { success: false, error: 'Aguarde um instante antes de responder novamente.' };
+    }
+
     const session = this.games.get(pin);
     if (!session) return { success: false, error: 'Sessão não encontrada' };
     if (session.status !== 'QUESTION') return { success: false, error: 'A rodada não está aceitando respostas' };
@@ -209,34 +258,51 @@ export class GameManager {
     if (!player) return { success: false, error: 'Jogador não encontrado' };
     if (session.answers.has(socketId)) return { success: false, error: 'Você já respondeu esta pergunta' };
 
+    // Se estiver eliminado no modo sobrevivência, não pontua
+    if (player.isEliminated) {
+      return { success: false, error: 'Operativo eliminado. Modo espectador ativo.' };
+    }
+
     const question = session.quiz.questions[session.currentQuestionIndex];
     const option = question.options.find((o) => o.id === optionId);
     if (!option) return { success: false, error: 'Opção inválida' };
 
-    const responseTimeMs = Date.now() - session.questionStartTime;
+    // Relógio autoritativo do servidor (Anti-Cheat)
+    const responseTimeMs = Math.max(50, Date.now() - session.questionStartTime);
     const isCorrect = option.isCorrect;
+
+    // Estatísticas da sessão
+    const pStats = session.playerStats.get(socketId) || { correctCount: 0, wrongCount: 0, totalResponseTimeMs: 0 };
+    pStats.totalResponseTimeMs += responseTimeMs;
 
     // Cálculo da pontuação
     let pointsAwarded = 0;
     if (isCorrect) {
+      pStats.correctCount += 1;
       if (session.quiz.gameMode === 'speed_bonus') {
         const totalDurationMs = question.timeLimit * 1000;
         const timeFraction = Math.max(0, Math.min(1, responseTimeMs / totalDurationMs));
-        // Base de 500 pontos + até 500 de bônus por rapidez
         const basePoints = question.points * 0.5;
         const speedBonus = question.points * 0.5 * (1 - timeFraction);
-        pointsAwarded = Math.round(basePoints + speedBonus);
+        // Bônus por streak consecutivo
+        const streakBonus = Math.min(player.streak * 50, 200);
+        pointsAwarded = Math.round(basePoints + speedBonus + streakBonus);
       } else {
         pointsAwarded = question.points;
       }
       player.streak += 1;
     } else {
+      pStats.wrongCount += 1;
       player.streak = 0;
       if (session.quiz.gameMode === 'elimination') {
         player.isEliminated = true;
+        this.io.to(socketId).emit('player:eliminated', {
+          message: '/// OPERATIVO DESCONECTADO /// MODO ESPECTADOR ATIVADO',
+        });
       }
     }
 
+    session.playerStats.set(socketId, pStats);
     player.score += pointsAwarded;
 
     const playerAnswer: PlayerAnswer = {
@@ -250,13 +316,13 @@ export class GameManager {
     player.lastAnswer = playerAnswer;
     session.answers.set(socketId, playerAnswer);
 
-    // Envia confirmação ao jogador
+    // Confirmação ao jogador
     this.io.to(socketId).emit('answer:confirmed', {
       optionId,
       timeRemaining: session.timeRemaining,
     });
 
-    // Atualiza contagem de respostas na tela do apresentador
+    // Atualiza contagem na tela do apresentador
     this.io.to(session.hostSocketId).emit('host:answer_count', {
       answeredCount: session.answers.size,
       totalPlayers: session.players.size,
@@ -297,10 +363,10 @@ export class GameManager {
       correctOptionId: correctOption?.id || '',
     };
 
-    // Emite revelação para a tela grande (Host)
+    // Emite revelação para o apresentador
     this.io.to(session.hostSocketId).emit('question:reveal', stats);
 
-    // Emite resultado individual para cada aluno em seu celular
+    // Emite resultado individual para cada participante
     session.players.forEach((player, socketId) => {
       const ans = session.answers.get(socketId);
       this.io.to(socketId).emit('player:result', {
@@ -310,6 +376,7 @@ export class GameManager {
         totalScore: player.score,
         correctOptionId: correctOption?.id,
         explanation: question.explanation,
+        isEliminated: player.isEliminated,
       });
     });
   }
@@ -337,7 +404,7 @@ export class GameManager {
 
     // Emite placar geral para o telão
     this.io.to(session.hostSocketId).emit('leaderboard:update', {
-      leaderboard: leaderboard.slice(0, 10), // Top 10
+      leaderboard: leaderboard.slice(0, 10),
       isLastQuestion,
     });
 
@@ -375,7 +442,32 @@ export class GameManager {
     });
   }
 
+  // Gera relatório CSV com estatísticas da rodada para download do professor
+  public generateCsvReport(pin: string): string | null {
+    const session = this.games.get(pin);
+    if (!session) return null;
+
+    const sortedPlayers = Array.from(session.players.values()).sort((a, b) => b.score - a.score);
+
+    // UTF-8 BOM (\uFEFF) para garantir caracteres e acentos corretos no Excel
+    let csv = '\uFEFFPosição,Operativo / Nome,Avatar,Pontos Totais,Acertos,Erros,Precisão (%),Tempo Médio (s),Status\n';
+
+    sortedPlayers.forEach((p, idx) => {
+      const stats = session.playerStats.get(p.id) || { correctCount: 0, wrongCount: 0, totalResponseTimeMs: 0 };
+      const totalAnswered = stats.correctCount + stats.wrongCount;
+      const precision = totalAnswered > 0 ? Math.round((stats.correctCount / totalAnswered) * 100) : 0;
+      const avgTime = totalAnswered > 0 ? (stats.totalResponseTimeMs / totalAnswered / 1000).toFixed(2) : '0.00';
+      const status = p.isEliminated ? 'Eliminado' : 'Ativo';
+
+      csv += `${idx + 1},"${p.nickname.replace(/"/g, '""')}",${p.avatar},${p.score},${stats.correctCount},${stats.wrongCount},${precision}%,${avgTime}s,${status}\n`;
+    });
+
+    return csv;
+  }
+
   public handleDisconnect(socketId: string) {
+    this.rateLimitMap.delete(socketId);
+
     // Se o host desconectar
     for (const [pin, session] of this.games.entries()) {
       if (session.hostSocketId === socketId) {
@@ -388,9 +480,9 @@ export class GameManager {
       } else if (session.players.has(socketId)) {
         const p = session.players.get(socketId)!;
         p.connected = false;
-        // Se estiver em lobby, remove
         if (session.status === 'LOBBY') {
           session.players.delete(socketId);
+          session.playerStats.delete(socketId);
           this.broadcastLobby(session);
         }
         break;

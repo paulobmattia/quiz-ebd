@@ -12,7 +12,11 @@ import {
   Home, 
   BookOpen, 
   CheckCircle2, 
-  Sparkles
+  Download,
+  Terminal,
+  Crosshair,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { socket } from '../services/socket.js';
 import { soundManager } from '../utils/audio.js';
@@ -53,6 +57,7 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
   // URL e Rede
   const [joinUrl, setJoinUrl] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(soundManager.isMuted);
 
   useEffect(() => {
     // Cria sessão no servidor
@@ -66,13 +71,11 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
       setQuizTitle(res.quizTitle);
       setTotalQuestions(res.totalQuestions);
 
-      // Constrói URL amigável para celular (funciona tanto na nuvem quanto no Wi-Fi local)
+      // Constrói URL amigável para celular
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       if (!isLocalhost) {
-        // Na nuvem (ex: Render, Railway), usa o domínio público com HTTPS
         setJoinUrl(`${window.location.origin}/?pin=${res.pin}`);
       } else {
-        // Em rede local, usa o IP do Wi-Fi detectado pelo servidor
         const host = res.localIp || window.location.hostname;
         const port = window.location.port === '5173' ? '5173' : window.location.port || '3001';
         const protocol = window.location.protocol;
@@ -85,7 +88,7 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
       setPlayers(data.players);
     });
 
-    // Contagem regressiva antes da pergunta
+    // Contagem regressiva
     socket.on('game:countdown', ({ count }) => {
       setStatus('COUNTDOWN');
       setCountdown(count);
@@ -111,7 +114,7 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
       }
     });
 
-    // Contagem em tempo real de quem já respondeu
+    // Contagem de respostas recebidas em tempo real
     socket.on('host:answer_count', ({ answeredCount: count }) => {
       setAnsweredCount(count);
       soundManager.playClick();
@@ -138,7 +141,6 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
       setPodium(data.podium);
       soundManager.playFanfare();
 
-      // Dispara chuva de confetes no telão
       confetti({
         particleCount: 150,
         spread: 100,
@@ -165,6 +167,31 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
     };
   }, [quizId]);
 
+  // Atalhos de Teclado do Apresentador (Espaço/Enter para avançar, F para tela cheia, M para som)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Evita disparar atalhos se estiver em um input
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
+
+      if (e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault();
+        if (status === 'LOBBY') handleStartGame();
+        else if (status === 'REVEAL') handleShowLeaderboard();
+        else if (status === 'LEADERBOARD') handleNextQuestion();
+      } else if (e.code === 'KeyF') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.code === 'KeyM') {
+        e.preventDefault();
+        const muted = soundManager.toggleMute();
+        setIsMuted(muted);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [status, pin, players.length]);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -177,9 +204,7 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
 
   const handleStartGame = () => {
     if (players.length === 0) {
-      if (!window.confirm('Ainda não há participantes na sala. Deseja iniciar mesmo assim para testar?')) {
-        return;
-      }
+      if (!window.confirm('Nenhum aluno conectado. Deseja iniciar a demonstração mesmo assim?')) return;
     }
     soundManager.playClick();
     socket.emit('host:start_game', { pin });
@@ -195,110 +220,123 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
     socket.emit('host:next_question', { pin });
   };
 
-  // Cores das alternativas estilo Mentimeter / Kahoot
+  // Cores de Alto Contraste Operative Selection
   const optionThemes = [
-    { bg: 'from-rose-600 to-red-700', border: 'border-red-500', symbol: '▲' },
-    { bg: 'from-blue-600 to-indigo-700', border: 'border-blue-500', symbol: '◆' },
-    { bg: 'from-amber-500 to-yellow-600', border: 'border-amber-400', symbol: '●' },
-    { bg: 'from-emerald-600 to-green-700', border: 'border-emerald-500', symbol: '■' },
+    { bg: 'choice-cyan', symbol: '▲', color: 'text-[#00E5FF]', label: 'A' },
+    { bg: 'choice-red', symbol: '◆', color: 'text-[#E51C24]', label: 'B' },
+    { bg: 'choice-amber', symbol: '●', color: 'text-amber-400', label: 'C' },
+    { bg: 'choice-emerald', symbol: '■', color: 'text-emerald-400', label: 'D' },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between select-none relative overflow-hidden">
-      {/* Barra Superior do Apresentador */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-slate-800/80 bg-slate-900/50 backdrop-blur z-20">
+    <div className="min-h-screen bg-[#03060A] text-white flex flex-col justify-between select-none relative overflow-hidden font-sans cyber-grid radial-ambient">
+      {/* Barra de Comando Superior */}
+      <header className="px-6 py-3.5 flex items-center justify-between border-b border-[#27272A] bg-[#18181B]/90 backdrop-blur z-20">
         <div className="flex items-center gap-3">
           <button
             onClick={onExit}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-            title="Encerrar e Voltar"
+            className="p-2 rounded-lg bg-[#03060A] border border-[#27272A] hover:border-[#00E5FF] text-[#A1A1AA] hover:text-white transition-all"
+            title="Encerrar Sessão e Voltar"
           >
-            <Home className="w-5 h-5" />
+            <Home className="w-4 h-4" />
           </button>
           <div>
-            <h2 className="font-bold text-base text-white flex items-center gap-2">
-              <span>{quizTitle || 'Quiz ao Vivo'}</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+            <h2 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2 tracking-tight uppercase">
+              <span>{quizTitle || 'Operative Quiz Live'}</span>
+              <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/30 font-bold">
                 PIN: {pin}
               </span>
             </h2>
-            <p className="text-xs text-slate-400">
-              {status === 'LOBBY' ? 'Aguardando participantes' : `Pergunta ${questionIndex} de ${totalQuestions}`}
+            <p className="text-[11px] font-mono text-[#A1A1AA]">
+              {status === 'LOBBY' ? '/// AGUARDANDO CONEXÃO DE OPERATIVOS' : `FASE: PERGUNTA ${questionIndex} DE ${totalQuestions}`}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-sm font-semibold">
-            <Users className="w-4 h-4 text-indigo-400" />
-            <span>{players.length} conectados</span>
+        <div className="flex items-center gap-2 sm:gap-3 font-mono text-xs">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#03060A] border border-[#27272A] text-white">
+            <Users className="w-3.5 h-3.5 text-[#00E5FF]" />
+            <span>{players.length} CONECTADOS</span>
           </div>
 
           <button
-            onClick={toggleFullscreen}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
-            title={isFullscreen ? 'Sair da Tela Cheia' : 'Modo Projetor / Tela Cheia'}
+            onClick={() => {
+              const muted = soundManager.toggleMute();
+              setIsMuted(muted);
+            }}
+            className="p-2 rounded-lg bg-[#03060A] border border-[#27272A] text-[#A1A1AA] hover:text-[#00E5FF] transition-colors"
+            title={isMuted ? 'Ativar Som (M)' : 'Silenciar Som (M)'}
           >
-            {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-[#E51C24]" /> : <Volume2 className="w-4 h-4 text-[#00E5FF]" />}
+          </button>
+
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 rounded-lg bg-[#03060A] border border-[#27272A] text-[#A1A1AA] hover:text-[#00E5FF] transition-colors"
+            title={isFullscreen ? 'Sair da Tela Cheia (F)' : 'Tela Cheia / Projetor (F)'}
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
         </div>
       </header>
 
       {/* ==================================================== */}
-      {/* 1. TELA DE LOBBY (QR CODE + PIN + AVATARES) */}
+      {/* 1. TELA DE LOBBY (QR CODE + PIN + OPERATIVOS) */}
       {/* ==================================================== */}
       {status === 'LOBBY' && (
         <main className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-6xl mx-auto w-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center w-full">
-            {/* Bloco do QR Code e PIN */}
-            <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-2xl space-y-6 flex flex-col items-center">
-              <span className="text-xs font-bold tracking-widest text-indigo-400 uppercase bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 rounded-full">
-                Aponte a Câmera do Celular
-              </span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center w-full">
+            {/* Moldura Tática com QR Code e PIN */}
+            <div className="hud-panel p-8 space-y-6 flex flex-col items-center relative group">
+              <div className="flex items-center gap-2 text-xs font-mono text-[#00E5FF] uppercase tracking-widest">
+                <Crosshair className="w-4 h-4" /> SCANNER DIRETO DE CONEXÃO
+              </div>
 
-              {/* QR Code com Link Direto */}
               {joinUrl && (
-                <div className="p-4 bg-white rounded-2xl shadow-xl hover:scale-105 transition-transform">
-                  <QRCodeSVG value={joinUrl} size={220} level="M" />
+                <div className="p-4 bg-white rounded-lg shadow-[0_0_25px_rgba(0,229,255,0.25)] border-2 border-[#00E5FF] transition-transform">
+                  <QRCodeSVG value={joinUrl} size={210} level="M" />
                 </div>
               )}
 
               <div className="space-y-1">
-                <p className="text-sm text-slate-400">Ou acesse no navegador e digite o PIN:</p>
-                <div className="font-mono text-4xl sm:text-5xl font-extrabold tracking-widest text-indigo-400 bg-slate-950 px-6 py-2 rounded-2xl border border-slate-800 inline-block shadow-inner">
+                <p className="text-xs font-mono text-[#A1A1AA] uppercase">OU DIGITE O PIN NO NAVEGADOR:</p>
+                <div className="font-mono text-5xl font-black tracking-widest text-[#00E5FF] bg-[#03060A] px-6 py-2 rounded-lg border border-[#27272A] inline-block shadow-[inset_0_2px_10px_rgba(0,0,0,0.8)]">
                   {pin}
                 </div>
               </div>
 
-              <p className="text-xs text-slate-400 font-mono break-all max-w-xs">
+              <p className="text-[11px] font-mono text-[#A1A1AA] break-all max-w-xs">
                 {joinUrl}
               </p>
             </div>
 
-            {/* Bloco de Participantes Conectados */}
-            <div className="flex flex-col justify-between h-full space-y-6 bg-slate-900/50 border border-slate-800/80 p-8 rounded-3xl">
+            {/* Painel de Participantes Conectados */}
+            <div className="hud-panel p-8 flex flex-col justify-between h-full space-y-6">
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Users className="w-6 h-6 text-emerald-400" /> Participantes na Sala
+                <div className="flex items-center justify-between mb-4 border-b border-[#27272A] pb-3">
+                  <h3 className="text-sm font-mono font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Terminal className="w-4 h-4 text-[#00E5FF]" /> OPERATIVOS REGISTRADOS
                   </h3>
-                  <span className="text-2xl font-black text-emerald-400">{players.length}</span>
+                  <span className="font-mono text-xl font-bold text-[#00E5FF]">{players.length}</span>
                 </div>
 
                 {players.length === 0 ? (
-                  <div className="py-12 text-slate-500 text-center space-y-3">
-                    <Sparkles className="w-10 h-10 mx-auto text-slate-600 animate-pulse" />
-                    <p className="text-sm">Escaneie o QR Code ou digite o PIN para entrar...</p>
+                  <div className="py-14 text-[#A1A1AA] text-center space-y-3 font-mono text-xs">
+                    <div className="w-10 h-10 rounded-full border border-dashed border-[#27272A] flex items-center justify-center mx-auto text-[#00E5FF] animate-spin">
+                      +
+                    </div>
+                    <p>AGUARDANDO ENTRADA DE DISPOSITIVOS...</p>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-2.5 max-h-72 overflow-y-auto p-1">
+                  <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto p-1">
                     {players.map((p) => (
                       <div
                         key={p.id}
-                        className="animate-pulse-subtle bg-slate-800/90 border border-slate-700/80 px-3.5 py-1.5 rounded-full flex items-center gap-2 text-sm font-semibold shadow-md"
+                        className="bg-[#03060A] border border-[#27272A] px-3.5 py-1.5 rounded-lg flex items-center gap-2 text-xs font-mono text-white shadow-sm"
                       >
-                        <span className="text-lg">{p.avatar}</span>
-                        <span className="text-white">{p.nickname}</span>
+                        <span>{p.avatar}</span>
+                        <span className="font-bold">{p.nickname}</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#00E5FF] animate-pulse" />
                       </div>
                     ))}
                   </div>
@@ -306,12 +344,17 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
               </div>
 
               {/* Botão de Iniciar Jogo */}
-              <button
-                onClick={handleStartGame}
-                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600 hover:from-emerald-400 hover:to-indigo-500 text-white font-extrabold text-lg flex items-center justify-center gap-3 shadow-xl shadow-emerald-500/25 transition-all transform hover:scale-[1.02]"
-              >
-                <Play className="w-6 h-6 fill-white" /> Iniciar Quiz Agora
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={handleStartGame}
+                  className="w-full py-4 px-6 rounded-lg bg-[#00E5FF] hover:bg-[#00c8e0] text-[#03060A] font-mono font-bold text-sm tracking-widest uppercase flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,229,255,0.4)] transition-all transform hover:scale-[1.01]"
+                >
+                  <Play className="w-4 h-4 fill-current" /> INICIAR SESSÃO TÁTICA [ESPAÇO]
+                </button>
+                <p className="text-[10px] font-mono text-[#A1A1AA] text-center">
+                  ATALHO: PRESSIONE A BARRA DE ESPAÇO PARA INICIAR
+                </p>
+              </div>
             </div>
           </div>
         </main>
@@ -322,67 +365,67 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
       {/* ==================================================== */}
       {status === 'COUNTDOWN' && (
         <main className="flex-1 flex flex-col items-center justify-center">
-          <div className="animate-bounce">
-            <span className="text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-500">
+          <div className="w-36 h-36 rounded-full border-2 border-[#00E5FF] flex items-center justify-center animate-pulse-cyan bg-[#18181B]">
+            <span className="text-8xl font-black font-mono text-[#00E5FF]">
               {countdown}
             </span>
           </div>
-          <p className="text-2xl font-bold text-slate-300 mt-6 tracking-wide">
-            Preparem-se...
+          <p className="text-xl font-mono font-bold text-white mt-8 tracking-widest uppercase">
+            SISTEMA INICIANDO... PREPAREM-SE
           </p>
         </main>
       )}
 
       {/* ==================================================== */}
-      {/* 3. TELA DA PERGUNTA (CRONÔMETRO + TELÃO) */}
+      {/* 3. TELA DA PERGUNTA (ENUNCIADO + ALTERNATIVAS) */}
       {/* ==================================================== */}
       {status === 'QUESTION' && currentQuestion && (
-        <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 max-w-6xl mx-auto w-full">
-          {/* Topo da Pergunta: Enunciado e Cronômetro */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <span className="px-4 py-1.5 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-sm font-bold">
-                Pergunta {questionIndex} de {totalQuestions}
+        <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 max-w-6xl mx-auto w-full space-y-6">
+          {/* Topo da Pergunta */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between font-mono text-xs">
+              <span className="px-3 py-1 rounded bg-[#18181B] border border-[#27272A] text-[#00E5FF] font-bold">
+                FASE {questionIndex} / {totalQuestions}
               </span>
 
               {/* Cronômetro */}
               <div
-                className={`w-16 h-16 rounded-2xl flex items-center justify-center font-mono font-black text-2xl shadow-xl transition-all ${
+                className={`w-16 h-16 rounded-lg flex items-center justify-center font-mono font-black text-2xl border transition-all ${
                   timeRemaining <= 5
-                    ? 'bg-rose-600 text-white animate-pulse'
-                    : 'bg-indigo-600 text-white'
+                    ? 'bg-[#E51C24] text-white border-[#E51C24] animate-pulse-red'
+                    : 'bg-[#18181B] text-[#00E5FF] border-[#00E5FF]'
                 }`}
               >
                 {timeRemaining}
               </div>
 
               {/* Respostas já enviadas */}
-              <div className="px-4 py-1.5 rounded-xl bg-slate-800 text-slate-300 text-sm font-semibold flex items-center gap-2">
-                <span>{answeredCount} de {players.length} responderam</span>
+              <div className="px-3 py-1 rounded bg-[#18181B] border border-[#27272A] text-white font-bold">
+                {answeredCount} / {players.length} RESPONDERAM
               </div>
             </div>
 
-            {/* Texto Enunciado da Pergunta */}
-            <div className="bg-slate-900/90 border border-slate-800 p-8 sm:p-10 rounded-3xl shadow-2xl text-center">
-              <h1 className="text-2xl sm:text-4xl font-extrabold text-white leading-relaxed">
+            {/* Enunciado da Pergunta */}
+            <div className="hud-panel p-8 sm:p-10 text-center">
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-white leading-relaxed tracking-tight">
                 {currentQuestion.text}
               </h1>
             </div>
           </div>
 
           {/* Grid com as 4 Alternativas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 my-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {currentQuestion.options.map((opt, idx) => {
               const theme = optionThemes[idx % optionThemes.length];
               return (
                 <div
                   key={opt.id}
-                  className={`bg-gradient-to-r ${theme.bg} p-6 rounded-2xl shadow-lg border ${theme.border} flex items-center gap-4`}
+                  className={`${theme.bg} p-5 rounded-lg flex items-center gap-4 transition-all`}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-black/20 flex items-center justify-center text-2xl font-black">
+                  <div className={`w-10 h-10 rounded-lg bg-[#03060A] border border-white/20 flex items-center justify-center text-lg font-black ${theme.color}`}>
                     {theme.symbol}
                   </div>
-                  <span className="text-xl sm:text-2xl font-bold text-white flex-1">
+                  <span className="text-lg sm:text-xl font-bold text-white flex-1">
                     {opt.text}
                   </span>
                 </div>
@@ -391,10 +434,10 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
           </div>
 
           {/* Barra de Progresso do Tempo */}
-          <div className="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-800">
+          <div className="w-full bg-[#18181B] rounded-full h-2.5 overflow-hidden border border-[#27272A]">
             <div
               className={`h-full transition-all duration-1000 ${
-                timeRemaining <= 5 ? 'bg-rose-500' : 'bg-indigo-500'
+                timeRemaining <= 5 ? 'bg-[#E51C24]' : 'bg-[#00E5FF]'
               }`}
               style={{ width: `${(timeRemaining / currentQuestion.timeLimit) * 100}%` }}
             />
@@ -406,16 +449,18 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
       {/* 4. REVELAÇÃO DA RESPOSTA & GRÁFICO DE VOTOS */}
       {/* ==================================================== */}
       {status === 'REVEAL' && stats && (
-        <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 max-w-6xl mx-auto w-full">
-          <div className="text-center space-y-3">
+        <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 max-w-6xl mx-auto w-full space-y-6">
+          <div className="text-center space-y-2">
+            <span className="text-[10px] font-mono text-[#00E5FF] uppercase tracking-widest">
+              DIAGNÓSTICO DA RODADA /// VOTAÇÃO REGISTRADA
+            </span>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
               {stats.question.text}
             </h2>
-            <p className="text-sm text-slate-400">Distribuição das respostas dos participantes:</p>
           </div>
 
-          {/* Gráfico de Barras com Votos */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-6">
+          {/* Gráficos de Barras com Votos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {stats.question.options.map((opt, idx) => {
               const count = stats.optionCounts[opt.id] || 0;
               const percent = stats.totalAnswers > 0 ? Math.round((count / stats.totalAnswers) * 100) : 0;
@@ -425,35 +470,35 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
               return (
                 <div
                   key={opt.id}
-                  className={`relative p-5 rounded-2xl border-2 flex flex-col justify-between transition-all ${
+                  className={`p-5 rounded-lg border-2 flex flex-col justify-between transition-all ${
                     isCorrect
-                      ? 'bg-emerald-950/70 border-emerald-400 shadow-xl shadow-emerald-500/20'
-                      : 'bg-slate-900/90 border-slate-800 opacity-60'
+                      ? 'bg-[#18181B] border-[#00E5FF] shadow-[0_0_20px_rgba(0,229,255,0.25)]'
+                      : 'bg-[#18181B]/60 border-[#27272A] opacity-50'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center font-bold text-sm">
+                  <div className="flex items-center justify-between mb-3 font-mono">
+                    <span className={`w-7 h-7 rounded bg-[#03060A] flex items-center justify-center font-bold text-xs ${theme.color}`}>
                       {theme.symbol}
                     </span>
                     {isCorrect && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> CORRETA
+                      <span className="px-2 py-0.5 rounded bg-[#00E5FF]/20 text-[#00E5FF] border border-[#00E5FF]/40 text-[10px] font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> CORRETA
                       </span>
                     )}
                   </div>
 
-                  <p className="font-bold text-base text-white mb-4 line-clamp-2">
+                  <p className="font-bold text-sm text-white mb-4 line-clamp-2">
                     {opt.text}
                   </p>
 
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-slate-400">{count} votos</span>
-                      <span className="text-white">{percent}%</span>
+                  <div className="space-y-1 font-mono text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#A1A1AA]">{count} votos</span>
+                      <span className="text-white font-bold">{percent}%</span>
                     </div>
-                    <div className="w-full bg-slate-850 rounded-full h-2 overflow-hidden">
+                    <div className="w-full bg-[#03060A] rounded-full h-2 overflow-hidden border border-[#27272A]">
                       <div
-                        className={`h-full ${isCorrect ? 'bg-emerald-400' : 'bg-slate-600'}`}
+                        className={`h-full ${isCorrect ? 'bg-[#00E5FF]' : 'bg-[#A1A1AA]'}`}
                         style={{ width: `${percent}%` }}
                       />
                     </div>
@@ -463,24 +508,26 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
             })}
           </div>
 
-          {/* Explicação Bíblica / Didática (Se houver) */}
+          {/* Explicação Bíblica / Didática */}
           {stats.question.explanation && (
-            <div className="bg-indigo-950/40 border border-indigo-800/60 p-5 rounded-2xl flex items-start gap-3 text-left">
-              <BookOpen className="w-6 h-6 text-indigo-400 shrink-0 mt-0.5" />
+            <div className="hud-panel p-4 flex items-start gap-3 text-left border-[#00E5FF]/30">
+              <BookOpen className="w-5 h-5 text-[#00E5FF] shrink-0 mt-0.5" />
               <div>
-                <h4 className="text-sm font-bold text-indigo-300">Explicação & Referência:</h4>
+                <h4 className="text-xs font-mono font-bold text-[#00E5FF] uppercase">
+                  REFERÊNCIA DIDÁTICA:
+                </h4>
                 <p className="text-sm text-slate-200 mt-1">{stats.question.explanation}</p>
               </div>
             </div>
           )}
 
-          {/* Botão para Exibir Placar */}
-          <div className="text-center pt-4">
+          {/* Botão de Avanço */}
+          <div className="text-center pt-2">
             <button
               onClick={handleShowLeaderboard}
-              className="py-3.5 px-8 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-base inline-flex items-center gap-2 shadow-xl shadow-indigo-600/30 transition-all"
+              className="py-3 px-8 rounded-lg bg-[#00E5FF] hover:bg-[#00c8e0] text-[#03060A] font-mono font-bold text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(0,229,255,0.3)] transition-all"
             >
-              <Trophy className="w-5 h-5 text-amber-300" /> Ver Placar da Rodada
+              EXIBIR PLACAR DA RODADA [ESPAÇO]
             </button>
           </div>
         </main>
@@ -490,53 +537,54 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
       {/* 5. PLACAR / LEADERBOARD DA RODADA */}
       {/* ==================================================== */}
       {status === 'LEADERBOARD' && (
-        <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 max-w-4xl mx-auto w-full">
-          <div className="text-center space-y-2">
+        <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 max-w-4xl mx-auto w-full space-y-6">
+          <div className="text-center space-y-1">
+            <span className="text-[10px] font-mono text-[#00E5FF] uppercase tracking-widest">
+              SISTEMA DE CLASSIFICAÇÃO AO VIVO
+            </span>
             <h2 className="text-3xl font-extrabold text-white flex items-center justify-center gap-2">
-              <Trophy className="w-8 h-8 text-amber-400" /> Placar ao Vivo
+              <Trophy className="w-7 h-7 text-[#00E5FF]" /> RANKING DOS OPERATIVOS
             </h2>
-            <p className="text-sm text-slate-400">Classificação dos melhores colocados</p>
           </div>
 
-          {/* Tabela de Classificação dos Melhores */}
-          <div className="space-y-3 my-6">
+          <div className="space-y-2.5">
             {leaderboard.map((entry, idx) => (
               <div
                 key={entry.id}
-                className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex items-center justify-between shadow-lg hover:border-indigo-500/40 transition-all"
+                className="hud-panel p-3.5 flex items-center justify-between hover:border-[#00E5FF]/50 transition-all font-mono"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <span
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm ${
+                    className={`w-7 h-7 rounded flex items-center justify-center font-bold text-xs ${
                       idx === 0
-                        ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300'
+                        ? 'bg-[#00E5FF] text-[#03060A] font-black'
                         : idx === 1
-                        ? 'bg-slate-300 text-slate-950 ring-2 ring-slate-200'
+                        ? 'bg-slate-300 text-slate-950 font-bold'
                         : idx === 2
-                        ? 'bg-amber-700 text-white'
-                        : 'bg-slate-800 text-slate-400'
+                        ? 'bg-[#E51C24] text-white'
+                        : 'bg-[#03060A] text-[#A1A1AA] border border-[#27272A]'
                     }`}
                   >
-                    {entry.rank}
+                    #{entry.rank}
                   </span>
 
-                  <span className="text-2xl">{entry.avatar}</span>
+                  <span className="text-xl">{entry.avatar}</span>
                   <div>
-                    <span className="font-bold text-white text-base">{entry.nickname}</span>
+                    <span className="font-bold text-white text-sm font-sans">{entry.nickname}</span>
                     {entry.streak > 1 && (
-                      <span className="ml-2 text-xs text-amber-400 font-bold inline-flex items-center gap-0.5">
-                        <Flame className="w-3.5 h-3.5 fill-amber-400" /> {entry.streak} seguidas!
+                      <span className="ml-2 text-xs text-[#E51C24] font-bold inline-flex items-center gap-0.5">
+                        <Flame className="w-3 h-3 fill-current" /> {entry.streak}x STREAK
                       </span>
                     )}
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="font-mono font-black text-xl text-indigo-400">
-                    {entry.score.toLocaleString()} pts
+                  <span className="font-black text-lg text-[#00E5FF]">
+                    {entry.score.toLocaleString()} PTS
                   </span>
                   {entry.lastPointsEarned > 0 && (
-                    <span className="block text-xs text-emerald-400 font-semibold">
+                    <span className="block text-[11px] text-emerald-400 font-bold">
                       +{entry.lastPointsEarned}
                     </span>
                   )}
@@ -545,19 +593,18 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
             ))}
           </div>
 
-          {/* Botão de Avanço */}
-          <div className="text-center pt-4">
+          <div className="text-center pt-2">
             <button
               onClick={handleNextQuestion}
-              className="py-4 px-8 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-lg inline-flex items-center gap-2 shadow-xl shadow-indigo-600/30 transition-all"
+              className="py-3.5 px-8 rounded-lg bg-[#00E5FF] hover:bg-[#00c8e0] text-[#03060A] font-mono font-bold text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(0,229,255,0.3)] transition-all inline-flex items-center gap-2"
             >
               {isLastQuestion ? (
                 <>
-                  <Trophy className="w-5 h-5 text-amber-300" /> Revelar Pódio dos Vencedores!
+                  <Trophy className="w-4 h-4" /> REVELAR PÓDIO FINAL [ESPAÇO]
                 </>
               ) : (
                 <>
-                  <span>Próxima Pergunta</span> <ChevronRight className="w-5 h-5" />
+                  <span>PRÓXIMA PERGUNTA [ESPAÇO]</span> <ChevronRight className="w-4 h-4" />
                 </>
               )}
             </button>
@@ -566,49 +613,49 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
       )}
 
       {/* ==================================================== */}
-      {/* 6. PÓDIO FINAL / VITÓRIA (1º, 2º e 3º LUGARES) */}
+      {/* 6. PÓDIO FINAL & RELATÓRIO CSV */}
       {/* ==================================================== */}
       {status === 'PODIUM' && (
-        <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 max-w-5xl mx-auto w-full text-center">
-          <div className="space-y-2">
-            <span className="text-xs uppercase font-bold tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full">
-              Fim de Jogo!
+        <main className="flex-1 flex flex-col justify-between p-6 sm:p-10 max-w-5xl mx-auto w-full text-center space-y-6">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono font-bold tracking-widest text-[#00E5FF] bg-[#18181B] border border-[#00E5FF]/30 px-3 py-1 rounded-full uppercase">
+              MISSÃO CONCLUÍDA /// PÓDIO FINAL
             </span>
-            <h1 className="text-4xl sm:text-5xl font-black text-white">
-              🎉 Pódio dos Campeões
+            <h1 className="text-4xl sm:text-5xl font-black text-white uppercase tracking-tight">
+              CAMPEÕES DA SESSÃO
             </h1>
           </div>
 
-          {/* Degraus do Pódio Olímpico */}
-          <div className="flex items-end justify-center gap-4 sm:gap-6 my-10 max-w-xl mx-auto w-full">
+          {/* Degraus do Pódio */}
+          <div className="flex items-end justify-center gap-4 sm:gap-6 my-8 max-w-xl mx-auto w-full">
             {/* 2º Lugar */}
             {podium[1] && (
               <div className="flex-1 flex flex-col items-center">
-                <div className="text-4xl mb-2 animate-bounce">{podium[1].avatar}</div>
-                <div className="font-bold text-sm text-slate-200 truncate max-w-[100px]">
+                <div className="text-4xl mb-1 animate-bounce">{podium[1].avatar}</div>
+                <div className="font-bold text-xs text-white truncate max-w-[100px]">
                   {podium[1].nickname}
                 </div>
-                <div className="font-mono text-xs text-indigo-300 font-bold mb-2">
-                  {podium[1].score.toLocaleString()} pts
+                <div className="font-mono text-xs text-[#00E5FF] font-bold mb-2">
+                  {podium[1].score.toLocaleString()} PTS
                 </div>
-                <div className="w-full h-36 bg-gradient-to-t from-slate-800 to-slate-700 rounded-t-2xl flex items-center justify-center font-black text-3xl text-slate-300 shadow-xl border-t-4 border-slate-300">
+                <div className="w-full h-36 bg-[#18181B] rounded-t-lg flex items-center justify-center font-mono font-black text-3xl text-slate-300 border-t-4 border-slate-300 shadow-lg">
                   2º
                 </div>
               </div>
             )}
 
-            {/* 1º Lugar (Centro e mais alto) */}
+            {/* 1º Lugar */}
             {podium[0] && (
               <div className="flex-1 flex flex-col items-center">
-                <div className="text-6xl mb-2 animate-bounce">👑</div>
-                <div className="text-5xl mb-2">{podium[0].avatar}</div>
-                <div className="font-extrabold text-base text-amber-300 truncate max-w-[120px]">
+                <div className="text-5xl mb-1 animate-bounce">👑</div>
+                <div className="text-4xl mb-1">{podium[0].avatar}</div>
+                <div className="font-extrabold text-sm text-[#00E5FF] truncate max-w-[120px]">
                   {podium[0].nickname}
                 </div>
-                <div className="font-mono text-sm text-amber-400 font-black mb-2">
-                  {podium[0].score.toLocaleString()} pts
+                <div className="font-mono text-xs text-[#00E5FF] font-black mb-2">
+                  {podium[0].score.toLocaleString()} PTS
                 </div>
-                <div className="w-full h-52 bg-gradient-to-t from-amber-600 to-amber-500 rounded-t-2xl flex items-center justify-center font-black text-4xl text-slate-950 shadow-2xl border-t-4 border-amber-300">
+                <div className="w-full h-52 bg-[#18181B] rounded-t-lg flex items-center justify-center font-mono font-black text-4xl text-[#00E5FF] border-t-4 border-[#00E5FF] shadow-[0_0_30px_rgba(0,229,255,0.3)]">
                   1º
                 </div>
               </div>
@@ -617,28 +664,38 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
             {/* 3º Lugar */}
             {podium[2] && (
               <div className="flex-1 flex flex-col items-center">
-                <div className="text-4xl mb-2 animate-bounce">{podium[2].avatar}</div>
-                <div className="font-bold text-sm text-slate-200 truncate max-w-[100px]">
+                <div className="text-4xl mb-1 animate-bounce">{podium[2].avatar}</div>
+                <div className="font-bold text-xs text-white truncate max-w-[100px]">
                   {podium[2].nickname}
                 </div>
-                <div className="font-mono text-xs text-indigo-300 font-bold mb-2">
-                  {podium[2].score.toLocaleString()} pts
+                <div className="font-mono text-xs text-[#E51C24] font-bold mb-2">
+                  {podium[2].score.toLocaleString()} PTS
                 </div>
-                <div className="w-full h-28 bg-gradient-to-t from-amber-900 to-amber-800 rounded-t-2xl flex items-center justify-center font-black text-2xl text-amber-300 shadow-xl border-t-4 border-amber-600">
+                <div className="w-full h-28 bg-[#18181B] rounded-t-lg flex items-center justify-center font-mono font-black text-2xl text-[#E51C24] border-t-4 border-[#E51C24] shadow-lg">
                   3º
                 </div>
               </div>
             )}
           </div>
 
-          {/* Ações Finais */}
-          <div className="flex items-center justify-center gap-4">
+          {/* Ações e Download de Relatório CSV */}
+          <div className="flex items-center justify-center gap-3 flex-wrap pt-2">
             <button
               onClick={onExit}
-              className="py-3 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-sm transition-colors"
+              className="py-2.5 px-5 rounded-lg bg-[#03060A] hover:bg-[#27272A] border border-[#27272A] text-white font-mono text-xs font-bold uppercase transition-all"
             >
-              Voltar ao Início
+              VOLTAR AO INÍCIO
             </button>
+
+            {/* Download Relatório CSV */}
+            <a
+              href={`/api/sessions/${pin}/report`}
+              download
+              className="py-2.5 px-5 rounded-lg bg-[#18181B] hover:bg-[#27272A] border border-[#00E5FF]/50 text-[#00E5FF] font-mono text-xs font-bold uppercase inline-flex items-center gap-2 shadow-[0_0_12px_rgba(0,229,255,0.2)] transition-all"
+            >
+              <Download className="w-3.5 h-3.5" /> BAIXAR RELATÓRIO (CSV)
+            </a>
+
             <button
               onClick={() => {
                 socket.emit('host:create_game', { quizId }, (res: any) => {
@@ -646,9 +703,9 @@ export const HostView: React.FC<HostViewProps> = ({ quizId, onExit }) => {
                   setStatus('LOBBY');
                 });
               }}
-              className="py-3 px-6 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors shadow-lg shadow-indigo-600/25"
+              className="py-2.5 px-5 rounded-lg bg-[#00E5FF] hover:bg-[#00c8e0] text-[#03060A] font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)]"
             >
-              Jogar Novamente
+              JOGAR NOVAMENTE
             </button>
           </div>
         </main>
